@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Shader Wallpapers</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
+<style>
+  :root{
+    --cream:#FFFAF3;
+    --ink:#1F1A14;
+    --ink-soft:rgba(31,26,20,0.62);
+    --brand:#F26A1F;
+    --glass:rgba(255,250,243,0.72);
+    --line:rgba(255,250,243,0.28);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ width:100%; height:100%; overflow:hidden; background:#0a0a0c; }
+  body{
+    font-family:'Pretendard',-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    color:#fff;
+    cursor:crosshair;
+    touch-action:none;
+  }
+  #gl{ position:fixed; inset:0; width:100%; height:100%; display:block; }
+
+  /* ---- chrome ---- */
+  .chrome{
+    position:fixed; inset:0; pointer-events:none; z-index:10;
+    transition:opacity .5s ease;
+  }
+  .chrome.idle{ opacity:0; }
+
+  .topbar{
+    position:absolute; top:0; left:0; right:0;
+    display:flex; align-items:flex-start; justify-content:space-between;
+    padding:26px 30px;
+  }
+  .brand{
+    display:flex; flex-direction:column; gap:3px;
+    text-shadow:0 1px 14px rgba(0,0,0,0.45);
+  }
+  .brand .kicker{
+    font-size:11px; font-weight:600; letter-spacing:0.22em;
+    text-transform:uppercase; opacity:0.7;
+  }
+  .brand .name{ font-size:20px; font-weight:800; letter-spacing:-0.01em; }
+  .hint{
+    text-align:right; max-width:280px;
+    font-size:13.5px; font-weight:500; line-height:1.5;
+    color:rgba(255,255,255,0.92);
+    text-shadow:0 1px 12px rgba(0,0,0,0.5);
+    word-break:keep-all;
+  }
+
+  .dock{
+    position:absolute; left:50%; bottom:26px; transform:translateX(-50%);
+    display:flex; gap:8px; padding:8px;
+    background:rgba(20,16,12,0.42);
+    border:1px solid rgba(255,255,255,0.14);
+    border-radius:9999px;
+    backdrop-filter:blur(14px) saturate(1.2);
+    -webkit-backdrop-filter:blur(14px) saturate(1.2);
+    pointer-events:auto;
+    box-shadow:0 10px 40px rgba(0,0,0,0.4);
+  }
+  .pill{
+    appearance:none; border:none; cursor:pointer;
+    display:flex; align-items:center; gap:8px;
+    padding:11px 17px; border-radius:9999px;
+    background:transparent; color:rgba(255,255,255,0.78);
+    font-family:inherit; font-size:14px; font-weight:600;
+    letter-spacing:-0.01em; white-space:nowrap;
+    transition:background .2s ease, color .2s ease;
+  }
+  .pill:hover{ background:rgba(255,255,255,0.1); color:#fff; }
+  .pill .num{
+    font-size:11px; font-weight:700; opacity:0.55;
+    font-variant-numeric:tabular-nums;
+  }
+  .pill .en{ font-size:11px; font-weight:600; opacity:0.55; letter-spacing:0.04em; }
+  .pill.active{
+    background:var(--cream); color:var(--ink);
+    box-shadow:0 4px 16px rgba(0,0,0,0.28);
+  }
+  .pill.active .num{ color:var(--brand); opacity:1; }
+  .pill.active .en{ opacity:0.5; }
+
+  /* ---- peekaboo ---- */
+  .peek{ position:fixed; inset:0; display:none; z-index:5; background:#0a0a0c; cursor:crosshair; }
+  .peek.on{ display:block; }
+  .peek img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center; }
+  .peek .faces{ position:absolute; inset:0; pointer-events:none; }
+  .emoji{
+    position:absolute; line-height:1; user-select:none; pointer-events:none;
+    transform:translate(-50%,-50%) scale(1); opacity:1;
+    transition:opacity .3s ease, transform .35s cubic-bezier(0.2,0.8,0.2,1);
+    filter:drop-shadow(0 3px 7px rgba(20,12,4,0.45));
+    will-change:opacity,transform;
+  }
+  .emoji.gone{ opacity:0; transform:translate(-50%,-50%) scale(0.15); }
+
+  @media (max-width:720px){
+    .topbar{ padding:18px 18px; }
+    .hint{ display:none; }
+    .dock{ bottom:18px; gap:4px; padding:6px; max-width:calc(100vw - 24px); overflow-x:auto; }
+    .pill{ padding:9px 13px; font-size:13px; }
+    .pill .en{ display:none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div class="peek" id="peek">
+  <img src="assets/highfive.jpg" alt="" />
+  <div class="faces" id="peekFaces"></div>
+</div>
+
+<div class="chrome" id="chrome">
+  <div class="topbar">
+    <div class="brand">
+      <span class="kicker">Interactive Shaders</span>
+      <span class="name">HIGH FIVE 26 · 살아있는 벽지</span>
+    </div>
+    <div class="hint" id="hint"></div>
+  </div>
+  <div class="dock" id="dock"></div>
+</div>
+
+<script id="vert" type="x-shader/x-vertex">
+attribute vec2 a_pos;
+varying vec2 v_uv;
+void main(){
+  v_uv = a_pos * 0.5 + 0.5;
+  gl_Position = vec4(a_pos, 0.0, 1.0);
+}
+</script>
+
+<script id="common" type="x-shader/x-fragment">
+precision highp float;
+varying vec2 v_uv;
+uniform vec2  u_resolution;
+uniform vec2  u_texResolution;
+uniform float u_time;
+uniform vec2  u_mouse;     // smoothed, uv space (y up)
+uniform vec2  u_mouseV;    // mouse velocity
+uniform float u_down;      // 0..1 pointer pressed
+uniform vec4  u_clicks[8]; // xy = uv pos, z = startTime, w = active
+uniform float u_segments;  // kaleidoscope segment count
+uniform sampler2D u_tex;
+
+vec2 coverUV(vec2 uv){
+  float ra = u_resolution.x / u_resolution.y;
+  float ta = u_texResolution.x / u_texResolution.y;
+  vec2 r = (ra < ta) ? vec2(ra/ta, 1.0) : vec2(1.0, ta/ra);
+  return (uv - 0.5) * r + 0.5;
+}
+vec3 tex(vec2 uv){ return texture2D(u_tex, coverUV(uv)).rgb; }
+vec2 aspv(){ return vec2(u_resolution.x / u_resolution.y, 1.0); }
+
+float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+float noise(vec2 p){
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f*f*(3.0-2.0*f);
+  return mix(mix(hash(i), hash(i+vec2(1,0)), u.x),
+             mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), u.x), u.y);
+}
+float fbm(vec2 p){
+  float v = 0.0, a = 0.5;
+  for(int i=0;i<5;i++){ v += a*noise(p); p *= 2.0; a *= 0.5; }
+  return v;
+}
+</script>
+
+<!-- 1 · RIPPLE -->
+<script id="frag1" type="x-shader/x-fragment">
+void main(){
+  vec2 uv = v_uv;
+  vec2 asp = aspv();
+  vec2 disp = vec2(0.0);
+
+  for(int i=0;i<8;i++){
+    if(u_clicks[i].w < 0.5) continue;
+    vec2 c = u_clicks[i].xy;
+    float age = u_time - u_clicks[i].z;
+    vec2 d = (uv - c) * asp;
+    float dist = length(d);
+    float front = age * 0.62;
+    float ring = dist - front;
+    float decay = exp(-age*1.15) * exp(-ring*ring*90.0);
+    float wave = sin(ring*54.0 - age*7.0);
+    disp += normalize(d + 1e-5) * wave * decay * 0.05;
+  }
+
+  // trailing ripple that follows the cursor
+  vec2 dm = (uv - u_mouse) * asp;
+  float dl = length(dm);
+  float speed = clamp(length(u_mouseV)*6.0, 0.0, 1.0);
+  float mw = sin(dl*46.0 - u_time*4.5) * exp(-dl*7.0);
+  disp += normalize(dm + 1e-5) * mw * (0.006 + 0.014*speed);
+
+  vec3 col = tex(uv + disp);
+
+  // fake specular sheen riding the wavefronts
+  float h = clamp(length(disp)*9.0, 0.0, 1.0);
+  col += h * vec3(0.42, 0.55, 0.85);
+  // subtle caustic darkening in troughs
+  col *= 1.0 - h*0.18;
+
+  gl_FragColor = vec4(col, 1.0);
+}
+</script>
+
+<!-- 2 · LIQUID -->
+<script id="frag2" type="x-shader/x-fragment">
+void main(){
+  vec2 uv = v_uv;
+  vec2 asp = aspv();
+  float t = u_time * 0.13;
+
+  // flowing domain warp
+  vec2 q = vec2(fbm(uv*3.0 + t), fbm(uv*3.0 + vec2(5.2,1.3) - t));
+  vec2 warp = (q - 0.5) * 0.10;
+
+  // swirl around cursor
+  vec2 dm = (uv - u_mouse) * asp;
+  float dl = length(dm);
+  float infl = exp(-dl*4.2);
+  float ang = infl * (2.2 + u_down*1.6);
+  float s = sin(ang), c = cos(ang);
+  vec2 rot = vec2(dm.x*c - dm.y*s, dm.x*s + dm.y*c) / asp;
+  warp += rot - (uv - u_mouse);
+
+  // click bursts push the surface outward
+  for(int i=0;i<8;i++){
+    if(u_clicks[i].w < 0.5) continue;
+    vec2 d = (uv - u_clicks[i].xy) * asp;
+    float age = u_time - u_clicks[i].z;
+    float dist = length(d);
+    float b = exp(-age*1.6) * exp(-dist*4.5) * sin(dist*18.0 - age*6.0);
+    warp += normalize(d + 1e-5) * b * 0.06 / asp;
+  }
+
+  // chromatic split scaled by warp strength
+  float m = clamp(length(warp)*6.0, 0.0, 1.0);
+  vec3 col;
+  col.r = tex(uv + warp*1.12).r;
+  col.g = tex(uv + warp).g;
+  col.b = tex(uv + warp*0.88).b;
+  col += m * vec3(0.05, 0.08, 0.16);
+
+  gl_FragColor = vec4(col, 1.0);
+}
+</script>
+
+<!-- 3 · MOSAIC -->
+<script id="frag3" type="x-shader/x-fragment">
+void main(){
+  vec2 uv = v_uv;
+  vec2 asp = aspv();
+  float dl = length((uv - u_mouse) * asp);
+
+  // sharp near the cursor, chunky in the distance
+  float far = smoothstep(0.04, 0.62, dl);
+  float blocks = mix(240.0, 24.0, far);
+
+  // click shatter wave
+  float pulse = 0.0;
+  for(int i=0;i<8;i++){
+    if(u_clicks[i].w < 0.5) continue;
+    vec2 d = (uv - u_clicks[i].xy) * asp;
+    float age = u_time - u_clicks[i].z;
+    float ring = abs(length(d) - age*0.72);
+    pulse += exp(-age*1.7) * exp(-ring*ring*36.0);
+  }
+  pulse = clamp(pulse, 0.0, 1.0);
+  blocks = mix(blocks, 11.0, pulse);
+
+  vec2 res = vec2(blocks, blocks * u_resolution.y / u_resolution.x);
+  vec2 cell = floor(uv * res);
+  vec2 buv = (cell + 0.5) / res;
+
+  // scatter the blocks during a shatter
+  buv += (vec2(hash(cell), hash(cell + 7.3)) - 0.5) * pulse * 0.10;
+
+  vec3 col = tex(buv);
+  col += pulse * 0.16;                       // flash on impact
+  // faint grid grout so blocks read as tiles
+  vec2 g = abs(fract(uv*res) - 0.5);
+  float line = smoothstep(0.5, 0.46, max(g.x, g.y));
+  col *= mix(1.0, 0.9, line * far * 0.6);
+
+  gl_FragColor = vec4(col, 1.0);
+}
+</script>
+
+<!-- 4 · HALFTONE -->
+<script id="frag4" type="x-shader/x-fragment">
+void main(){
+  vec2 uv = v_uv;
+  vec2 asp = aspv();
+  float dl = length((uv - u_mouse) * asp);
+
+  // magnifier: finer dots near the cursor
+  float near = smoothstep(0.55, 0.02, dl);
+  float cells = mix(84.0, 188.0, near);
+
+  // click pulse momentarily swells the dots
+  float pulse = 0.0;
+  for(int i=0;i<8;i++){
+    if(u_clicks[i].w < 0.5) continue;
+    vec2 d = (uv - u_clicks[i].xy) * asp;
+    float age = u_time - u_clicks[i].z;
+    float ring = abs(length(d) - age*0.6);
+    pulse += exp(-age*2.0) * exp(-ring*ring*44.0);
+  }
+
+  vec2 res = vec2(cells, cells * u_resolution.y / u_resolution.x);
+  vec2 cell = floor(uv * res);
+  vec2 center = (cell + 0.5) / res;
+  vec3 src = tex(center);
+  float lum = dot(src, vec3(0.299, 0.587, 0.114));
+
+  vec2 f = fract(uv * res) - 0.5;
+  float d = length(f) * 1.42;
+  float r = sqrt(clamp(1.0 - lum, 0.03, 1.0)) * (0.62 + pulse*0.5);
+  float dot = smoothstep(r, r - 0.12, d);
+
+  vec3 paper = vec3(1.0, 0.980, 0.953);
+  vec3 ink = mix(src*1.06, vec3(0.12,0.10,0.08), 0.04);
+  vec3 col = mix(paper, ink, dot);
+
+  gl_FragColor = vec4(col, 1.0);
+}
+</script>
+
+<!-- 5 · KALEIDOSCOPE -->
+<script id="frag5" type="x-shader/x-fragment">
+void main(){
+  vec2 uv = v_uv;
+  vec2 p = uv - 0.5;
+  p.x *= u_resolution.x / u_resolution.y;
+
+  float baseAng = (u_mouse.x - 0.5) * 6.2831 + u_time * 0.05;
+  float zoom = mix(1.7, 0.55, clamp(u_mouse.y, 0.0, 1.0));
+
+  float a = atan(p.y, p.x) + baseAng;
+  float rad = length(p) * zoom;
+
+  float seg = max(u_segments, 3.0);
+  float k = 6.2831 / seg;
+  a = mod(a, k);
+  a = abs(a - k * 0.5);
+
+  vec2 kp = vec2(cos(a), sin(a)) * rad;
+  vec2 suv = kp + 0.5;
+  suv += 0.06 * vec2(sin(u_time*0.2), cos(u_time*0.17));
+
+  vec3 col = tex(fract(suv));
+
+  // soft vignette to focus the mandala
+  float v = smoothstep(1.25, 0.2, length(p));
+  col *= 0.55 + 0.45 * v;
+  gl_FragColor = vec4(col, 1.0);
+}
+</script>
+
+<script>
+(function(){
+  const canvas = document.getElementById('gl');
+  const gl = canvas.getContext('webgl', { antialias:true, premultipliedAlpha:false, preserveDrawingBuffer:true });
+  if(!gl){ document.body.innerHTML = '<p style="color:#fff;padding:40px;font-family:sans-serif">WebGL을 사용할 수 없는 환경이에요.</p>'; return; }
+
+  const SHADERS = [
+    { ko:'물결', en:'Ripple',  hint:'커서를 따라 잔물결이 일고, 클릭하면 동심원이 퍼져 나가요.' },
+    { ko:'일렁임', en:'Liquid', hint:'마우스로 화면을 휘저으면 사진이 액체처럼 소용돌이쳐요. 누르면 더 세게.' },
+    { ko:'픽셀', en:'Mosaic',  hint:'커서 주변은 선명하고 멀수록 뭉개져요. 클릭하면 와르르 부서졌다 모여요.' },
+    { ko:'도트', en:'Halftone',hint:'인쇄 망점으로 바뀐 사진. 가까이 갈수록 또렷하고, 클릭하면 점이 부풀어요.' },
+    { ko:'만화경', en:'Kaleido', hint:'좌우로 움직여 돌리고 위아래로 확대해요. 클릭하면 조각 수가 바뀌어요.' },
+  ];
+
+  // 6th mode is DOM-based (not a shader): faces covered by emoji that vanish on hover.
+  const MODES = SHADERS.concat([
+    { ko:'까꿍', en:'Peekaboo', hint:'정면을 보는 사람 얼굴을 이모지로 가렸어요. 커서를 가져가면 스르르 사라지며 얼굴이 드러나요.' },
+  ]);
+
+  // normalized face positions (x,y in 0..1 of the photo) + size + emoji
+  const FACES = [
+    { x:0.227, y:0.580, s:0.024, e:'😎' },
+    { x:0.433, y:0.555, s:0.020, e:'😄' },
+    { x:0.456, y:0.710, s:0.030, e:'🙂' },
+    { x:0.500, y:0.895, s:0.032, e:'😊' },
+    { x:0.470, y:0.972, s:0.034, e:'🤓' },
+    { x:0.507, y:0.610, s:0.018, e:'😇' },
+    { x:0.467, y:0.420, s:0.024, e:'😁' },
+    { x:0.483, y:0.290, s:0.018, e:'🥸' },
+    { x:0.447, y:0.210, s:0.016, e:'😌' },
+    { x:0.780, y:0.700, s:0.028, e:'🙃' },
+    { x:0.680, y:0.700, s:0.020, e:'😜' },
+    { x:0.890, y:0.105, s:0.022, e:'😏' },
+    { x:0.850, y:0.190, s:0.022, e:'😬' },
+    { x:0.857, y:0.300, s:0.020, e:'😶' },
+    { x:0.860, y:0.392, s:0.016, e:'🤭' },
+    { x:0.902, y:0.425, s:0.018, e:'😳' },
+  ];
+
+  // ---------- shader compile ----------
+  const vsrc = document.getElementById('vert').textContent;
+  const common = document.getElementById('common').textContent;
+  function compile(type, src){
+    const sh = gl.createShader(type);
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if(!gl.getShaderParameter(sh, gl.COMPILE_STATUS)){
+      console.error(gl.getShaderInfoLog(sh), src);
+      throw new Error('shader compile');
+    }
+    return sh;
+  }
+  const vs = compile(gl.VERTEX_SHADER, vsrc);
+  const programs = SHADERS.map((_, i) => {
+    const fsrc = common + '\n' + document.getElementById('frag'+(i+1)).textContent;
+    const fs = compile(gl.FRAGMENT_SHADER, fsrc);
+    const p = gl.createProgram();
+    gl.attachShader(p, vs); gl.attachShader(p, fs); gl.linkProgram(p);
+    if(!gl.getProgramParameter(p, gl.LINK_STATUS)){ console.error(gl.getProgramInfoLog(p)); throw new Error('link'); }
+    const loc = {};
+    ['u_resolution','u_texResolution','u_time','u_mouse','u_mouseV','u_down','u_clicks','u_segments','u_tex']
+      .forEach(n => loc[n] = gl.getUniformLocation(p, n));
+    loc.a_pos = gl.getAttribLocation(p, 'a_pos');
+    return { program:p, loc };
+  });
+
+  // fullscreen quad
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+
+  // ---------- texture ----------
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  // 1px placeholder until the image loads
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, 1,1,0, gl.RGB, gl.UNSIGNED_BYTE, new Uint8Array([20,20,24]));
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  let texW = 1760, texH = 1049;
+  const img = new Image();
+  img.onload = () => {
+    texW = img.naturalWidth; texH = img.naturalHeight;
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img);
+    if(peekActive) layoutFaces();
+  };
+  img.src = 'assets/highfive.jpg';
+
+  // ---------- state ----------
+  let current = 0;
+  let mode = 0;
+  let peekActive = false;
+  const start = performance.now();
+  const mouse = { x:0.5, y:0.5, tx:0.5, ty:0.5, px:0.5, py:0.5 };
+  let down = 0, downTarget = 0;
+  let segments = 6, segTarget = 6;
+  const CLICK_LIFE = 6.0;
+  const clicks = [];               // {x,y,t}
+  const clickData = new Float32Array(8*4);
+
+  // ---------- resize ----------
+  function resize(){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.floor(innerWidth * dpr), h = Math.floor(innerHeight * dpr);
+    if(canvas.width !== w || canvas.height !== h){
+      canvas.width = w; canvas.height = h;
+    }
+    if(peekActive) layoutFaces();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------- peekaboo overlay ----------
+  const peek = document.getElementById('peek');
+  const peekFaces = document.getElementById('peekFaces');
+  const emojiEls = FACES.map(f => {
+    const s = document.createElement('span');
+    s.className = 'emoji';
+    s.textContent = f.e;
+    peekFaces.appendChild(s);
+    return s;
+  });
+  function layoutFaces(){
+    const cw = innerWidth, ch = innerHeight;
+    const ia = texW / texH, va = cw / ch;
+    let dW, dH;
+    if(va > ia){ dW = cw; dH = cw / ia; } else { dH = ch; dW = ch * ia; }
+    const ox = (cw - dW) / 2, oy = (ch - dH) / 2;
+    FACES.forEach((f, i) => {
+      f._px = ox + f.x * dW;
+      f._py = oy + f.y * dH;
+      const el = emojiEls[i];
+      el.style.left = f._px + 'px';
+      el.style.top = f._py + 'px';
+      el.style.fontSize = Math.max(22, f.s * dW * 1.95) + 'px';
+    });
+  }
+  function updateReveal(cx, cy){
+    const R = Math.max(74, Math.min(innerWidth, innerHeight) * 0.13);
+    for(let i=0;i<FACES.length;i++){
+      const d = Math.hypot(cx - FACES[i]._px, cy - FACES[i]._py);
+      emojiEls[i].classList.toggle('gone', d < R);
+    }
+  }
+
+  // ---------- input ----------
+  function setPointer(clientX, clientY){
+    mouse.tx = clientX / innerWidth;
+    mouse.ty = 1.0 - clientY / innerHeight;
+    wake();
+  }
+  function addClick(clientX, clientY){
+    const x = clientX / innerWidth;
+    const y = 1.0 - clientY / innerHeight;
+    const t = (performance.now() - start) / 1000;
+    clicks.push({ x, y, t });
+    if(clicks.length > 8) clicks.shift();
+    if(current === 4){ // kaleidoscope cycles segment count
+      const steps = [6,8,10,12,16,4];
+      const idx = steps.indexOf(segTarget);
+      segTarget = steps[(idx+1) % steps.length];
+    }
+  }
+  window.addEventListener('pointermove', e => { setPointer(e.clientX, e.clientY); if(peekActive) updateReveal(e.clientX, e.clientY); });
+  window.addEventListener('pointerdown', e => {
+    if(e.target.closest('.dock')) return;
+    if(peekActive){ updateReveal(e.clientX, e.clientY); wake(); return; }
+    downTarget = 1; setPointer(e.clientX, e.clientY); addClick(e.clientX, e.clientY);
+  });
+  window.addEventListener('pointerup', () => { downTarget = 0; });
+  window.addEventListener('pointercancel', () => { downTarget = 0; });
+  window.addEventListener('keydown', e => {
+    const n = parseInt(e.key, 10);
+    if(n >= 1 && n <= MODES.length) select(n-1);
+  });
+
+  // ---------- chrome ----------
+  const chrome = document.getElementById('chrome');
+  const dock = document.getElementById('dock');
+  const hintEl = document.getElementById('hint');
+  let idleTimer = null;
+  function wake(){
+    chrome.classList.remove('idle');
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => chrome.classList.add('idle'), 2800);
+  }
+  const pills = MODES.map((s, i) => {
+    const b = document.createElement('button');
+    b.className = 'pill' + (i===0?' active':'');
+    b.innerHTML = `<span class="num">${String(i+1).padStart(2,'0')}</span><span>${s.ko}</span><span class="en">${s.en}</span>`;
+    b.addEventListener('click', () => select(i));
+    dock.appendChild(b);
+    return b;
+  });
+  function select(i){
+    mode = i;
+    pills.forEach((p, k) => p.classList.toggle('active', k===i));
+    hintEl.textContent = MODES[i].hint;
+    peekActive = (i === 5);
+    peek.classList.toggle('on', peekActive);
+    canvas.style.display = peekActive ? 'none' : 'block';
+    if(peekActive){
+      layoutFaces();
+      emojiEls.forEach(el => el.classList.remove('gone'));
+    } else {
+      current = i;
+      if(i === 4){ segTarget = 6; segments = 6; }
+    }
+    wake();
+  }
+  hintEl.textContent = MODES[0].hint;
+  wake();
+
+  // ---------- render ----------
+  function render(){
+    if(peekActive){ requestAnimationFrame(render); return; }
+    const now = (performance.now() - start) / 1000;
+
+    // smoothing
+    mouse.px = mouse.x; mouse.py = mouse.y;
+    mouse.x += (mouse.tx - mouse.x) * 0.12;
+    mouse.y += (mouse.ty - mouse.y) * 0.12;
+    down += (downTarget - down) * 0.15;
+    segments += (segTarget - segments) * 0.12;
+    const vx = mouse.x - mouse.px, vy = mouse.y - mouse.py;
+
+    // pack clicks
+    for(let i=0;i<8;i++){
+      const c = clicks[i];
+      const base = i*4;
+      if(c && now - c.t < CLICK_LIFE){
+        clickData[base] = c.x; clickData[base+1] = c.y;
+        clickData[base+2] = c.t; clickData[base+3] = 1.0;
+      } else {
+        clickData[base+3] = 0.0;
+      }
+    }
+
+    gl.viewport(0,0,canvas.width,canvas.height);
+    const { program, loc } = programs[current];
+    gl.useProgram(program);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.enableVertexAttribArray(loc.a_pos);
+    gl.vertexAttribPointer(loc.a_pos, 2, gl.FLOAT, false, 0, 0);
+
+    gl.uniform2f(loc.u_resolution, canvas.width, canvas.height);
+    gl.uniform2f(loc.u_texResolution, texW, texH);
+    gl.uniform1f(loc.u_time, now);
+    gl.uniform2f(loc.u_mouse, mouse.x, mouse.y);
+    gl.uniform2f(loc.u_mouseV, vx, vy);
+    gl.uniform1f(loc.u_down, down);
+    gl.uniform1f(loc.u_segments, segments);
+    if(loc.u_clicks) gl.uniform4fv(loc.u_clicks, clickData);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.uniform1i(loc.u_tex, 0);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+})();
+</script>
+</body>
+</html>
